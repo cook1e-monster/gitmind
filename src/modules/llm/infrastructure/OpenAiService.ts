@@ -61,7 +61,27 @@ export class OpenAiService implements LLMService {
     return summaries
   }
 
-  async suggestCommits(summaries: FileChangeSummary[]): Promise<string[]> {
-    return summaries.map((s) => `${s.type}: ${s.summary}`)
+  async suggestCommits(summaries: FileChangeSummary[]): Promise<string> {
+    const prompt = `Given these changes, group them into logical commits. Each commit should have a clear, focused purpose.
+    
+Changes:
+${summaries.map((s) => `- ${s.file}: ${s.summary}`).join('\n')}
+
+Return the commits in this format:
+commit1: message1
+files: file1, file2
+
+commit2: message2
+files: file3, file4
+
+...`
+
+    const chat = await this.openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+    })
+
+    return chat.choices[0]?.message.content ?? ''
   }
 }
