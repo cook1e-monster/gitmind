@@ -6,6 +6,85 @@ import inquirer from 'inquirer'
 import slugify from 'slugify'
 import { $ } from 'bun'
 
+// Función para obtener la información del repositorio de Git
+async function getGitHubInfo(): Promise<{ owner: string; repo: string }> {
+  const remoteUrl = await $`git config --get remote.origin.url`.text()
+  const match = remoteUrl.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/)
+
+  if (!match) {
+    throw new Error('Could not determine GitHub repository from git remote')
+  }
+
+  return {
+    owner: match[1],
+    repo: match[2],
+  }
+}
+
+// Función para obtener el token de GitHub del sistema
+function getGitHubToken(): string {
+  // Intentar obtener el token de diferentes fuentes
+  const token =
+    process.env.GITHUB_TOKEN ||
+    process.env.GH_TOKEN ||
+    process.env.GITHUB_PAT ||
+    process.env.GH_PAT
+
+  if (!token) {
+    throw new Error(
+      'GitHub token not found. Please set GITHUB_TOKEN, GH_TOKEN, GITHUB_PAT, or GH_PAT environment variable',
+    )
+  }
+
+  return token
+}
+
+// Función para determinar el tipo de cambio basado en los archivos modificados
+function determineChangeType(files: string[]): string {
+  const hasNewFiles = files.some((f) => f.startsWith('A '))
+  const hasModifiedFiles = files.some((f) => f.startsWith('M '))
+  const hasDeletedFiles = files.some((f) => f.startsWith('D '))
+
+  if (hasNewFiles && !hasModifiedFiles && !hasDeletedFiles) return 'feature'
+  if (hasDeletedFiles) return 'remove'
+  if (hasModifiedFiles) return 'update'
+  return 'change'
+}
+
+// Función para crear un PR usando la API de GitHub
+async function createPullRequest(
+  title: string,
+  body: string,
+  baseBranch: string,
+  headBranch: string,
+): Promise<void> {
+  const { owner, repo } = await getGitHubInfo()
+  const token = getGitHubToken()
+
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        body,
+        head: headBranch,
+        base: baseBranch,
+      }),
+    },
+  )
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(`Failed to create PR: ${error.message}`)
+  }
+}
+
 async function main() {
   const git = new BunGitService()
   const llm = new OpenAiService(process.env.OPENAI_API_KEY!, git)
@@ -81,12 +160,16 @@ async function main() {
   }
 
   const currentBranch = await git.getCurrentBranch()
+  let newBranch: string | undefined
+
   if (['main', 'master', 'dev'].includes(currentBranch)) {
+    const changeType = determineChangeType(filesToProcess)
+    const timestamp = new Date().toISOString().split('T')[0]
     const branchSlug = slugify(plan.messages[0].slice(0, 50), {
       lower: true,
       strict: true,
     })
-    const newBranch = `gitmind/${branchSlug}`
+    newBranch = `gitmind/${changeType}/${timestamp}-${branchSlug}`
 
     // Ensure we're up to date with the main branch
     await $`git fetch origin ${currentBranch}`
@@ -111,20 +194,19 @@ async function main() {
   }
 
   try {
-    await $`gh pr create --fill`
-    console.log('📝 Pull request created!')
+    const title = plan.messages[0]
+    const body = plan.messages.slice(1).join('\n\n')
+    if (newBranch) {
+      await createPullRequest(title, body, currentBranch, newBranch)
+      console.log('📝 Pull request created!')
+    }
   } catch (error) {
-    if (error instanceof Error && error.message.includes('command not found')) {
-      console.warn('⚠️ GitHub CLI (gh) is not installed or not authenticated.')
-      console.log('\nTo create a pull request:')
-      console.log('1. Install GitHub CLI: https://cli.github.com/')
-      console.log('2. Authenticate: gh auth login')
-      console.log('3. Create PR: gh pr create')
-    } else {
-      console.warn(
-        '⚠️ Failed to create pull request:',
-        error instanceof Error ? error.message : 'Unknown error',
-      )
+    if (error instanceof Error) {
+      console.warn('⚠️ Failed to create pull request:', error.message)
+      console.log('\nTo create a pull request manually:')
+      console.log('1. Go to GitHub repository')
+      console.log('2. Click "Compare & pull request"')
+      console.log('3. Fill in the title and description')
     }
   }
 
