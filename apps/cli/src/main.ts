@@ -3,8 +3,10 @@ import { OpenAiService } from '../../../src/modules/llm/infrastructure/OpenAiSer
 import { SummarizeDiffsUseCase } from '../../../src/modules/llm/application/SummarizeDiffsUseCase'
 import { PlanCommitsUseCase } from '../../../src/modules/commit/application/PlanCommitsUseCase'
 import inquirer from 'inquirer'
-import slugify from 'slugify'
 import { $ } from 'bun'
+import { config } from '../../../config'
+
+const OPENAI_API_KEY = config.OPENAI_API_KEY
 
 // Función para obtener la información del repositorio de Git
 async function getGitHubInfo(): Promise<{ owner: string; repo: string }> {
@@ -87,7 +89,7 @@ async function createPullRequest(
 
 async function main() {
   const git = new BunGitService()
-  const llm = new OpenAiService(process.env.OPENAI_API_KEY!, git)
+  const llm = new OpenAiService(OPENAI_API_KEY!, git)
 
   if (!(await git.isGitRepo())) {
     console.log('❌ Not a Git repository.')
@@ -151,51 +153,50 @@ async function main() {
   }
 
   const summaries = await new SummarizeDiffsUseCase(llm).execute(diffs)
-  const plan = await new PlanCommitsUseCase().execute(summaries)
-  const message = plan.messages.join('\n\n')
+  const plan = await new PlanCommitsUseCase(llm).execute(summaries)
 
-  if (!message || message.trim().length === 0) {
-    console.error('❌ Failed to generate commit message.')
+  if (!plan.commits.length) {
+    console.error('❌ Failed to generate commit plan.')
     return
   }
 
   const currentBranch = await git.getCurrentBranch()
   let newBranch: string | undefined
 
-  if (['main', 'master', 'dev'].includes(currentBranch)) {
-    const changeType = determineChangeType(filesToProcess)
-    const timestamp = new Date().toISOString().split('T')[0]
-    const branchSlug = slugify(plan.messages[0].slice(0, 50), {
-      lower: true,
-      strict: true,
-    })
-    newBranch = `gitmind/${changeType}/${timestamp}-${branchSlug}`
-
+  if (plan.branchName) {
     // Ensure we're up to date with the main branch
     await $`git fetch origin ${currentBranch}`
     await $`git reset --hard origin/${currentBranch}`
 
     // Create and switch to new branch
-    await git.createBranch(newBranch)
-    console.log(`🌿 Created and switched to branch: ${newBranch}`)
+    await git.createBranch(plan.branchName)
+    console.log(`🌿 Created and switched to branch: ${plan.branchName}`)
+    newBranch = plan.branchName
   }
 
-  for (const file of filesToProcess) {
-    await $`git add ${file}`
-  }
+  // Execute each commit in sequence
+  for (const commit of plan.commits) {
+    for (const file of commit.files) {
+      await $`git add ${file}`
+    }
 
-  await git.commit(message, filesToProcess)
+    await git.commit(commit.message, commit.files)
+    console.log(`✅ Committed: ${commit.message}`)
+  }
 
   // Force push if it's a new branch
-  if (['main', 'master', 'dev'].includes(currentBranch)) {
+  if (newBranch) {
     await $`git push -u origin HEAD --force`
   } else {
     await git.push()
   }
 
   try {
-    const title = plan.messages[0]
-    const body = plan.messages.slice(1).join('\n\n')
+    const title = plan.commits[0].message
+    const body = plan.commits
+      .slice(1)
+      .map((c) => c.message)
+      .join('\n\n')
     if (newBranch) {
       await createPullRequest(title, body, currentBranch, newBranch)
       console.log('📝 Pull request created!')
@@ -210,7 +211,7 @@ async function main() {
     }
   }
 
-  console.log('✅ Commit + push complete.')
+  console.log('✅ All commits and push complete.')
 }
 
 main()
