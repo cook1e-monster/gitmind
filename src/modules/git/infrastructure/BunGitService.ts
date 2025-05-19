@@ -100,7 +100,7 @@ export class BunGitService implements GitService {
 
   async push(): Promise<void> {
     try {
-      // Guardar la rama actual
+      // Save current branch
       const currentBranch = await this.getCurrentBranch()
 
       // Check if we have any commits
@@ -110,14 +110,14 @@ export class BunGitService implements GitService {
         throw new Error('No commits to push. Please commit your changes first.')
       }
 
-      // Hacer el push
+      // Perform push
       await execAsync('git push -u origin HEAD')
       console.log('🚀 Push complete')
 
-      // Si estamos en una rama diferente a main/master/dev, volver a la rama anterior
+      // If we're on a branch other than main/master/dev, return to the previous branch
       if (!['main', 'master', 'dev'].includes(currentBranch)) {
         await execAsync(`git checkout ${currentBranch}`)
-        console.log(`↩️  Volviendo a la rama: ${currentBranch}`)
+        console.log(`↩️  Returning to branch: ${currentBranch}`)
       }
     } catch (e) {
       console.error('[GitMind] Push failed', e)
