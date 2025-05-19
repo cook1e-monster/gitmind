@@ -4,9 +4,15 @@ export interface FileChangeSummary {
   type: 'feat' | 'fix' | 'chore' | 'refactor' | 'docs' | 'test'
 }
 
+export interface Commit {
+  message: string
+  files: string[]
+  type: FileChangeSummary['type']
+}
+
 export class CommitPlan {
   constructor(
-    public messages: string[],
+    public commits: Commit[],
     public branchName?: string,
   ) {}
 }
