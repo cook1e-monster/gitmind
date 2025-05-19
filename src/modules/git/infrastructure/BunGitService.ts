@@ -82,13 +82,33 @@ export class BunGitService implements GitService {
     }
 
     try {
+      // First, check if there are any changes to commit
+      const status = await this.getStatusPorcelain()
+      if (status.length === 0) {
+        throw new Error('No changes to commit')
+      }
+
+      // Add files to staging
       if (files && files.length > 0) {
         for (const file of files) {
-          await execAsync(`git add ${file}`)
+          try {
+            await execAsync(`git add "${file}"`)
+          } catch (e) {
+            console.error(`[GitMind] Failed to add file ${file}`, e)
+            throw new Error(`Failed to add file ${file} to staging`)
+          }
         }
       } else {
         await execAsync('git add -A')
       }
+
+      // Verify that files were staged
+      const stagedChanges = await this.getStagedChanges()
+      if (stagedChanges.length === 0) {
+        throw new Error('No files were staged for commit')
+      }
+
+      // Create the commit
       const escapedMessage = message.replace(/"/g, '\\"')
       await execAsync(`git commit -m "${escapedMessage}"`)
       console.log(`✅ Committed: ${message}`)
