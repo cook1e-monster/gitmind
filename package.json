@@ -1,0 +1,21 @@
+{
+	"name": "gitmind",
+	"version": "0.1.0",
+	"scripts": {
+		"cli": "bun run apps/cli/src/main.ts",
+		"dev": "bun --watch run apps/cli/src/main.ts"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.8.3",
+		"@types/inquirer": "^9.0.8",
+		"@types/vscode": "^1.100.0",
+		"bun-types": "^1.0.0",
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"@vscode/vsce": "^3.4.1",
+		"inquirer": "^9.0.0",
+		"openai": "^4.0.0",
+		"slugify": "^1.6.6"
+	}
+}

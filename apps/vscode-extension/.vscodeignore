@@ -1,0 +1,7 @@
+bun.lockb
+src/
+*.ts
+*.map
+README.md
+tsconfig.json
+.vscode/
