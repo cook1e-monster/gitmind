@@ -176,15 +176,26 @@ async function main() {
 
 	// Execute each commit in sequence
 	for (const commit of plan.commits) {
+		// Get status of all files before processing
+		const status = await git.getStatusPorcelain();
+
 		for (const file of commit.files) {
-			// Check if the file is deleted
-			const status = await git.getStatusPorcelain();
 			const fileStatus = status.find((f) => f.path === file);
 
-			if (fileStatus?.status === "D") {
-				await $`git rm ${file}`;
-			} else {
-				await $`git add ${file}`;
+			try {
+				if (fileStatus?.status === "D") {
+					// For deleted files, use git rm
+					await $`git rm "${file}"`;
+				} else if (fileStatus) {
+					// For existing files, use git add
+					await $`git add "${file}"`;
+				} else {
+					console.warn(`⚠️ File ${file} not found in git status, skipping...`);
+					continue;
+				}
+			} catch (e) {
+				console.error(`[GitMind] Failed to stage file ${file}:`, e);
+				throw new Error(`Failed to stage file ${file}`);
 			}
 		}
 
