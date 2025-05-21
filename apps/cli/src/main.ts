@@ -144,8 +144,19 @@ async function main() {
 
 	const diffs: Record<string, string> = {};
 	for (const file of filesToProcess) {
-		const diff = await git.getDiff(file);
-		diffs[file] = diff.trim();
+		const fileStatus = changed.find((f) => f.path === file);
+		if (fileStatus?.status === "D") {
+			diffs[file] = "[Deleted file]"; // Evitar llamar a getDiff
+			continue;
+		}
+
+		try {
+			const diff = await git.getDiff(file);
+			diffs[file] = diff.trim();
+		} catch (e) {
+			console.warn(`⚠️ Failed to get diff for ${file}: ${e}`);
+			diffs[file] = "[Diff unavailable due to error]";
+		}
 	}
 
 	if (Object.keys(diffs).length === 0) {
