@@ -214,8 +214,8 @@ async function main() {
 		console.log(`✅ Committed: ${commit.message}`);
 	}
 
-	// Force push if it's a new branch
 	if (newBranch) {
+		// Force push if it's a new branch
 		await $`git push -u origin HEAD --force`;
 	} else {
 		await git.push();
@@ -242,6 +242,33 @@ async function main() {
 	}
 
 	console.log("✅ All commits and push complete.");
+
+	if (!(await git.isGitRepo())) {
+		console.log("❌ Not a Git repository.");
+		process.exit(1);
+	}
+
+	if (changed.length === 0) {
+		console.log("✅ No files with changes detected.");
+		process.exit(0);
+	}
+
+	if (selected.length === 0) {
+		console.log("❌ No files selected.");
+		process.exit(1);
+	}
+
+	if (Object.keys(diffs).length === 0) {
+		console.log("ℹ️ No changes detected in selected files.");
+		process.exit(0);
+	}
+
+	if (!plan.commits.length) {
+		console.error("❌ Failed to generate commit plan.");
+		process.exit(1);
+	}
+
+	process.exit(0);
 }
 
 main();
