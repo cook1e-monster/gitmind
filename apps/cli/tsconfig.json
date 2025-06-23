@@ -28,15 +28,8 @@
     "experimentalDecorators": true,
 
     "paths": {
-      "@core/*": ["packages/core/*"],
-      "@git/*": ["packages/git/*"],
-      "@llm/*": ["packages/llm/*"],
-      "@commit/*": ["packages/commit/*"],
-      "@github/*": ["packages/github/*"],
-      "@cli-interaction/*": ["packages/cli-interaction/*"],
-      "@file-processing/*": ["packages/file-processing/*"],
-      "@workflow/*": ["packages/workflow/*"],
-      "@cli/*": ["apps/cli/*"]
+      "@cli-interaction/*": ["./src/cli-interaction/*"],
+      "@*": ["../../packages/*"]
     },
     "baseUrl": "./"
   }

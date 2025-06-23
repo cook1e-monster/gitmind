@@ -1,6 +1,6 @@
 import { exec, execSync } from 'child_process'
 import { promisify } from 'util'
-import type { GitService as GitServiceInterface } from '../domain/git.service'
+import type { GitServiceInterface } from '../domain/git.interface'
 import { Injectable } from '@core/container'
 
 const execAsync = promisify(exec)
@@ -16,6 +16,7 @@ export class GitService implements GitServiceInterface {
     }
   }
 
+  // git status but with porcelain format (short format)
   async getStatusPorcelain(): Promise<{ path: string; status: string }[]> {
     try {
       const { stdout } = await execAsync('git status --porcelain')

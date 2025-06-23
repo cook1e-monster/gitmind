@@ -1,4 +1,4 @@
-import type { GitService } from '@git/domain/git.service'
+import type { GitService } from '@git/domain/git.interface'
 
 export interface FileStatus {
   path: string

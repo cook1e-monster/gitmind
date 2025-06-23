@@ -1,0 +1,13 @@
+{
+  "name": "gitmind-cli",
+  "version": "0.1.0",
+  "scripts": {
+    "cli": "bun run cli",
+    "dev": "bun --watch run cli",
+    "build": "bun build cli --compile --outfile dist/gitmind"
+  },
+  "devDependencies": {
+    "bun-types": "^1.0.0"
+  },
+  "workspaces": ["../../packages/*", "./src/*"]
+}

@@ -1,19 +1,17 @@
 import { Inject, Injectable } from '@core/container'
 import { $ } from 'bun'
-import { InquirerInteractionService } from '@cli-interaction/infrastructure/inquirer-interaction.service'
 import { SummarizeDiffsUseCase } from '@llm/application/summarize-diffs.use-case'
 import { PlanCommitsUseCase } from '@commit/application/plan-commits.use-case'
 import { FileProcessorServiceImpl } from '@file-processing/infrastructure/file-processor.service'
 import { GitService } from '@git/infrastructure/git.service'
-import type { GitService as GitServiceInterface } from '@git/domain/git.service'
+import type { GitServiceInterface } from '@git/domain/git.interface'
 import { GitHubApiService } from '@git/infrastructure/git-hub-api.service'
+import type { Commit } from '@commit/domain/commit-plan'
 
 @Injectable()
 export class CommitWorkflowUseCase {
   constructor(
     @Inject(GitService) private git: GitServiceInterface,
-    @Inject(InquirerInteractionService)
-    private interaction: InquirerInteractionService,
     @Inject(SummarizeDiffsUseCase)
     private summarizeDiffs: SummarizeDiffsUseCase,
     @Inject(PlanCommitsUseCase) private planCommits: PlanCommitsUseCase,
@@ -22,26 +20,20 @@ export class CommitWorkflowUseCase {
     private fileProcessor: FileProcessorServiceImpl,
   ) {}
 
-  async execute(): Promise<void> {
-    if (!(await this.git.isGitRepo())) {
-      console.log('❌ Not a Git repository.')
-      throw new Error('Not a Git repository.')
-    }
-
+  async getChangedFiles(): Promise<{ path: string; status: string }[]> {
     const status = await this.git.getStatusPorcelain()
-    const changed = status.filter((f) =>
+    return status.filter((f) =>
       ['M', 'A', 'D', 'R', 'AM', 'MM', 'RM', '??'].includes(f.status),
     )
+  }
 
-    if (changed.length === 0) {
-      console.log('✅ No files with changes detected.')
-      throw new Error('No files with changes detected.')
-    }
-
-    // Select files to process
-    const filesToProcess = await this.interaction.selectFiles(changed)
-
-    // Process diffs - filter changed files to only include selected ones
+  async generateSummariesAndPlan(
+    filesToProcess: string[],
+    changed: {
+      path: string
+      status: string
+    }[],
+  ) {
     const selectedFileStatuses = changed.filter((f) =>
       filesToProcess.includes(f.path),
     )
@@ -53,19 +45,18 @@ export class CommitWorkflowUseCase {
 
     if (Object.keys(diffs).length === 0) {
       console.log('ℹ️ No changes detected in selected files.')
-      return
+      throw new Error('No changes detected in selected files.')
     }
 
-    // Generate summaries and commit plan
     const summaries = await this.summarizeDiffs.execute(diffs)
+
     const plan = await this.planCommits.execute(summaries)
 
     if (!plan.commits.length) {
       console.error('❌ Failed to generate commit plan.')
-      return
+      throw new Error('Failed to generate commit plan.')
     }
 
-    // Show the commit plan to the user
     console.log('\n📋 Generated Commit Plan:')
     console.log('='.repeat(50))
 
@@ -79,68 +70,21 @@ export class CommitWorkflowUseCase {
       console.log(`   Type: ${commit.type}`)
     })
 
-    // Handle branch creation
-    let newBranch: string | undefined
-    const currentBranch = await this.git.getCurrentBranch()
-
-    if (plan.branchName) {
-      const { confirmed, name } = await this.interaction.confirmBranch(
-        plan.branchName,
-      )
-
-      if (confirmed) {
-        // Ensure we're up to date with the main branch
-        await $`git fetch origin ${currentBranch}`
-        await $`git reset --hard origin/${currentBranch}`
-
-        // Create and switch to new branch
-        await this.git.createBranch(name)
-        console.log(`🌿 Created and switched to branch: ${name}`)
-        newBranch = name
-      }
-    }
-
-    // Review and edit commits
-    const finalCommits = await this.interaction.reviewCommits(plan.commits)
-
-    if (finalCommits.length === 0) {
-      console.log('❌ No commits to execute.')
-      return
-    }
-
-    // Confirm execution
-    const shouldExecute = await this.interaction.confirmExecution(
-      finalCommits.length,
-    )
-    if (!shouldExecute) {
-      console.log('❌ Operation cancelled by user.')
-      return
-    }
-
-    // Execute commits
-    await this.executeCommits(finalCommits)
-
-    // Handle push
-    const shouldPush = await this.interaction.confirmPush()
-    if (shouldPush) {
-      await this.pushChanges(newBranch)
-    } else {
-      console.log('⏸️ Push skipped by user.')
-    }
-
-    // Handle pull request creation
-    if (newBranch && shouldPush) {
-      await this.handlePullRequestCreation(
-        finalCommits,
-        currentBranch,
-        newBranch,
-      )
-    }
-
-    console.log('✅ All operations complete.')
+    return { plan, summaries }
   }
 
-  private async executeCommits(commits: any[]): Promise<void> {
+  async createNewBranch(branchName: string) {
+    const currentBranch = await this.git.getCurrentBranch()
+
+    await $`git fetch origin ${currentBranch}`
+    await $`git reset --hard origin/${currentBranch}`
+
+    // Create and switch to new branch
+    await this.git.createBranch(branchName)
+    console.log(`🌿 Created and switched to branch: ${name}`)
+  }
+
+  async executeCommits(commits: Commit[]): Promise<void> {
     for (const commit of commits) {
       // Get status of all files before processing
       const status = await this.git.getStatusPorcelain()
@@ -180,7 +124,7 @@ export class CommitWorkflowUseCase {
     }
   }
 
-  private async pushChanges(newBranch?: string): Promise<void> {
+  async pushChanges(newBranch?: string): Promise<void> {
     if (newBranch) {
       // Force push if it's a new branch
       await $`git push -u origin HEAD --force`
@@ -191,25 +135,12 @@ export class CommitWorkflowUseCase {
     }
   }
 
-  private async handlePullRequestCreation(
-    commits: any[],
+  async handlePullRequestCreation(
+    title: string,
+    body: string,
     currentBranch: string,
     newBranch: string,
   ): Promise<void> {
-    const { title, body } =
-      await this.interaction.createPullRequestData(commits)
-
-    try {
-      await this.github.createPullRequest(title, body, currentBranch, newBranch)
-      console.log('📝 Pull request created!')
-    } catch (error) {
-      if (error instanceof Error) {
-        console.warn('⚠️ Failed to create pull request:', error.message)
-        console.log('\nTo create a pull request manually:')
-        console.log('1. Go to GitHub repository')
-        console.log('2. Click "Compare & pull request"')
-        console.log('3. Fill in the title and description')
-      }
-    }
+    return this.github.createPullRequest(title, body, currentBranch, newBranch)
   }
 }

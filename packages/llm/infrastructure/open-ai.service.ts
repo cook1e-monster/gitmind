@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import type { FileChangeSummary } from '../../commit/domain/commit-plan'
 import type { LLMService } from '../domain/llm.service'
-import type { GitService as GitServiceInterface } from '../../git/domain/git.service'
+import type { GitService as GitServiceInterface } from '../../git/domain/git.interface'
 import { ConfigService } from '@core/config'
 import { Inject, Injectable } from '@core/container'
 import { GitService } from '@git/infrastructure/git.service'

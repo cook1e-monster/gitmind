@@ -3,7 +3,7 @@ import type {
   FileProcessorService,
   FileStatus,
 } from '../domain/file-processor.service'
-import type { GitService } from '@git/domain/git.service'
+import type { GitServiceInterface } from '@git/domain/git.interface'
 
 @Injectable()
 export class FileProcessorServiceImpl implements FileProcessorService {
@@ -20,7 +20,7 @@ export class FileProcessorServiceImpl implements FileProcessorService {
 
   async processDiffs(
     files: FileStatus[],
-    gitService: GitService,
+    gitService: GitServiceInterface,
   ): Promise<Record<string, string>> {
     const diffs: Record<string, string> = {}
 
