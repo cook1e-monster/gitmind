@@ -1,12 +1,12 @@
 import { exec, execSync } from 'child_process'
 import { promisify } from 'util'
-import type { GitService } from '../domain/git.service'
+import type { GitService as GitServiceInterface } from '../domain/git.service'
 import { Injectable } from '@core/container'
 
 const execAsync = promisify(exec)
 
 @Injectable()
-export class BunGitService implements GitService {
+export class GitService implements GitServiceInterface {
   async isGitRepo(): Promise<boolean> {
     try {
       await execAsync('git rev-parse --is-inside-work-tree')
@@ -78,46 +78,14 @@ export class BunGitService implements GitService {
     }
   }
 
-  async commit(message: string, files?: string[]): Promise<void> {
+  async commit(message: string): Promise<void> {
     if (!message || message.trim().length === 0) {
       throw new Error('Commit message cannot be empty')
     }
 
     try {
-      // Stage specified files
-      if (files && files.length > 0) {
-        const status = await this.getStatusPorcelain()
-
-        for (const file of files) {
-          const fileStatus = status.find((f) => f.path === file)
-
-          if (!fileStatus) {
-            console.warn(
-              `[GitMind] File ${file} not found in status, skipping.`,
-            )
-            continue
-          }
-
-          try {
-            // Check if file is already staged (status starts with A, M, or D)
-            if (['A', 'M', 'D'].includes(fileStatus.status)) {
-              console.log(`[GitMind] File ${file} is already staged, skipping.`)
-              continue
-            }
-
-            if (fileStatus.status === 'D') {
-              await execAsync(`git rm "${file}"`)
-            } else {
-              await execAsync(`git add "${file}"`)
-            }
-          } catch (e) {
-            console.error(`[GitMind] Failed to stage file ${file}`, e)
-            throw new Error(`Failed to stage file ${file}`)
-          }
-        }
-      } else {
-        await execAsync('git add -A')
-      }
+      // Stage all changes since files are already staged in the workflow
+      await execAsync('git add -A')
 
       // Verify that files were staged
       const stagedChanges = await this.getStagedChanges()

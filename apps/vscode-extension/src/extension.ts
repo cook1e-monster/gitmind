@@ -1,8 +1,8 @@
 import * as vscode from 'vscode'
-import { SummarizeDiffsUseCase } from '@llm/application/SummarizeDiffsUseCase'
-import { PlanCommitsUseCase } from '@commit/application/PlanCommitsUseCase'
-import { BunGitService } from '@git/infrastructure/BunGitService'
-import { OpenAiService } from '@llm/infrastructure/OpenAiService'
+import { SummarizeDiffsUseCase } from '@llm/application/summarize-diffs.use-case'
+import { PlanCommitsUseCase } from '@commit/application/plan-commits.use-case'
+import { BunGitService } from '@git/infrastructure/git.service'
+import { OpenAiService } from '@llm/infrastructure/open-ai.service'
 
 class GitMindViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView

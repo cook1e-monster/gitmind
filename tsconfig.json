@@ -2,10 +2,10 @@
   "compilerOptions": {
     // Enable latest features
     "lib": ["ESNext", "DOM"],
-    "target": "ES2022",
+    "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "allowJs": true,
 
     // Bundler mode
@@ -27,14 +27,6 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
 
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "incremental": true,
-    "baseUrl": ".",
-
     "paths": {
       "@core/*": ["packages/core/*"],
       "@git/*": ["packages/git/*"],
@@ -44,8 +36,7 @@
       "@cli-interaction/*": ["packages/cli-interaction/*"],
       "@file-processing/*": ["packages/file-processing/*"],
       "@workflow/*": ["packages/workflow/*"]
-    }
-  },
-  "include": ["apps/**/*", "packages/**/*"],
-  "exclude": ["node_modules", "dist", "build"]
+    },
+    "baseUrl": "./"
+  }
 }

@@ -1,16 +1,17 @@
 import { Inject, Injectable } from '@core/container'
 import { $ } from 'bun'
-import { BunGitService } from '@git/infrastructure/BunGitService'
-import { InquirerInteractionService } from '@cli-interaction/infrastructure/InquirerInteractionService'
-import { SummarizeDiffsUseCase } from '@llm/application/SummarizeDiffsUseCase'
-import { PlanCommitsUseCase } from '@commit/application/PlanCommitsUseCase'
-import { GitHubApiService } from '@github/infrastructure/GitHubApiService'
-import { FileProcessorServiceImpl } from '@file-processing/infrastructure/FileProcessorService'
+import { InquirerInteractionService } from '@cli-interaction/infrastructure/inquirer-interaction.service'
+import { SummarizeDiffsUseCase } from '@llm/application/summarize-diffs.use-case'
+import { PlanCommitsUseCase } from '@commit/application/plan-commits.use-case'
+import { FileProcessorServiceImpl } from '@file-processing/infrastructure/file-processor.service'
+import { GitService } from '@git/infrastructure/git.service'
+import type { GitService as GitServiceInterface } from '@git/domain/git.service'
+import { GitHubApiService } from '@git/infrastructure/git-hub-api.service'
 
 @Injectable()
 export class CommitWorkflowUseCase {
   constructor(
-    @Inject(BunGitService) private git: BunGitService,
+    @Inject(GitService) private git: GitServiceInterface,
     @Inject(InquirerInteractionService)
     private interaction: InquirerInteractionService,
     @Inject(SummarizeDiffsUseCase)
@@ -24,7 +25,7 @@ export class CommitWorkflowUseCase {
   async execute(): Promise<void> {
     if (!(await this.git.isGitRepo())) {
       console.log('❌ Not a Git repository.')
-      return
+      throw new Error('Not a Git repository.')
     }
 
     const status = await this.git.getStatusPorcelain()
@@ -34,7 +35,7 @@ export class CommitWorkflowUseCase {
 
     if (changed.length === 0) {
       console.log('✅ No files with changes detected.')
-      return
+      throw new Error('No files with changes detected.')
     }
 
     // Select files to process
@@ -44,6 +45,7 @@ export class CommitWorkflowUseCase {
     const selectedFileStatuses = changed.filter((f) =>
       filesToProcess.includes(f.path),
     )
+
     const diffs = await this.fileProcessor.processDiffs(
       selectedFileStatuses,
       this.git,
@@ -156,8 +158,11 @@ export class CommitWorkflowUseCase {
           if (fileStatus?.status === 'D') {
             // For deleted files, use git rm
             await $`git rm "${file}"`
-          } else if (fileStatus) {
-            // For existing files, use git add
+          } else if (fileStatus?.status === '??') {
+            // For untracked files, use git add
+            await $`git add "${file}"`
+          } else if (fileStatus?.status === 'M') {
+            // For modified files, use git add
             await $`git add "${file}"`
           } else {
             console.warn(`⚠️ File ${file} not found in git status, skipping...`)
@@ -169,7 +174,8 @@ export class CommitWorkflowUseCase {
         }
       }
 
-      await this.git.commit(commit.message, commit.files)
+      // Commit without specifying files parameter since we've already staged them
+      await this.git.commit(commit.message)
       console.log(`✅ Committed: ${commit.message}`)
     }
   }

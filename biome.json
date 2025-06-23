@@ -104,7 +104,10 @@
       "quoteStyle": "single",
       "attributePosition": "auto"
     },
-    "globals": ["exports"]
+    "globals": ["exports"],
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    }
   },
   "overrides": [
     {

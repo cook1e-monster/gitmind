@@ -4,7 +4,7 @@ import type {
   InteractionService,
   FileStatus,
 } from '../domain/interaction.service'
-import type { Commit } from '@commit/domain/CommitPlan'
+import type { Commit } from '@commit/domain/commit-plan'
 
 @Injectable()
 export class InquirerInteractionService implements InteractionService {

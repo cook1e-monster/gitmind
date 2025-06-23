@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@core/container'
-import { CommitWorkflowUseCase } from '@workflow/application/CommitWorkflowUseCase'
+import { CommitWorkflowUseCase } from '@workflow/application/commit-workflow.use-case'
 
 @Injectable()
 export class Cli {

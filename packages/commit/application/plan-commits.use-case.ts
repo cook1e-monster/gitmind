@@ -2,10 +2,10 @@ import {
   type FileChangeSummary,
   CommitPlan,
   type Commit,
-} from '../domain/CommitPlan'
+} from '../domain/commit-plan'
 import type { LLMService } from '@llm/domain/llm.service'
 import { Inject, Injectable } from '@core/container'
-import { OpenAiService } from '@llm/infrastructure/OpenAiService'
+import { OpenAiService } from '@llm/infrastructure/open-ai.service'
 
 @Injectable()
 export class PlanCommitsUseCase {
@@ -45,10 +45,12 @@ export class PlanCommitsUseCase {
     // For each type, let the LLM decide if we should split into multiple commits
     for (const [type, typeSummaries] of Object.entries(groupedByType)) {
       const response = await this.llmService.suggestCommits(typeSummaries)
+
       const commitGroups = response.split('\n\n').filter(Boolean)
 
       for (const group of commitGroups) {
         const [message, filesLine] = group.split('\n')
+
         const files = filesLine
           .replace('files:', '')
           .trim()

@@ -1,6 +1,6 @@
 import type { LLMService } from '../domain/llm.service'
 import { Inject, Injectable } from '@core/container'
-import { OpenAiService } from '../infrastructure/OpenAiService'
+import { OpenAiService } from '../infrastructure/open-ai.service'
 
 @Injectable()
 export class SummarizeDiffsUseCase {

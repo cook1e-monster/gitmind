@@ -1,4 +1,4 @@
-import type { Commit } from '@commit/domain/CommitPlan'
+import type { Commit } from '@commit/domain/commit-plan'
 
 export interface FileStatus {
   path: string

@@ -1,10 +1,10 @@
 import OpenAI from 'openai'
-import type { FileChangeSummary } from '../../commit/domain/CommitPlan'
+import type { FileChangeSummary } from '../../commit/domain/commit-plan'
 import type { LLMService } from '../domain/llm.service'
-import type { GitService } from '../../git/domain/git.service'
+import type { GitService as GitServiceInterface } from '../../git/domain/git.service'
 import { ConfigService } from '@core/config'
 import { Inject, Injectable } from '@core/container'
-import { BunGitService } from '@git/infrastructure/BunGitService'
+import { GitService } from '@git/infrastructure/git.service'
 
 @Injectable()
 export class OpenAiService implements LLMService {
@@ -12,7 +12,7 @@ export class OpenAiService implements LLMService {
 
   constructor(
     @Inject(ConfigService) configService: ConfigService,
-    @Inject(BunGitService) private readonly gitService: GitService,
+    @Inject(GitService) private readonly gitService: GitServiceInterface,
   ) {
     const apiKey = configService.get('OPENAI_API_KEY')
 
