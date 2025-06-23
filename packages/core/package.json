@@ -1,0 +1,19 @@
+{
+  "name": "@gitmind/core",
+  "version": "0.0.1",
+  "main": "index.ts",
+  "devDependencies": {},
+  "dependencies": {
+    "fast-glob": "^3.3.3",
+    "fast-json-parse": "^1.0.3",
+    "fast-safe-stringify": "^2.1.1",
+    "glob": "^11.0.2",
+    "glossy": "^0.1.7",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.0.0",
+    "pumpify": "^2.0.1",
+    "split2": "^4.2.0",
+    "through2": "^4.0.2",
+    "typescript": "^5.0.0"
+  }
+}

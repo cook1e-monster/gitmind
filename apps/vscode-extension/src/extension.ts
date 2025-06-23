@@ -1,8 +1,8 @@
 import * as vscode from 'vscode'
-import { SummarizeDiffsUseCase } from '../../../src/modules/llm/application/SummarizeDiffsUseCase'
-import { PlanCommitsUseCase } from '../../../src/modules/commit/application/PlanCommitsUseCase'
-import { BunGitService } from '../../../src/modules/git/infrastructure/BunGitService'
-import { OpenAiService } from '../../../src/modules/llm/infrastructure/OpenAiService'
+import { SummarizeDiffsUseCase } from '@llm/application/SummarizeDiffsUseCase'
+import { PlanCommitsUseCase } from '@commit/application/PlanCommitsUseCase'
+import { BunGitService } from '@git/infrastructure/BunGitService'
+import { OpenAiService } from '@llm/infrastructure/OpenAiService'
 
 class GitMindViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView
@@ -97,6 +97,9 @@ class GitMindViewProvider implements vscode.WebviewViewProvider {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+  // Initialize DI container
+  await BootstrapService.init(import.meta.url)
+
   const viewProvider = new GitMindViewProvider(context)
 
   context.subscriptions.push(
@@ -116,8 +119,12 @@ export async function activate(context: vscode.ExtensionContext) {
         return
       }
 
-      const git = new BunGitService()
-      const llm = new OpenAiService(apiKey)
+      // Get services from container
+      const git = container.get(BunGitService)
+      const llm = container.get(OpenAiService)
+      const summarizeDiffsUseCase = container.get(SummarizeDiffsUseCase)
+      const planCommitsUseCase = container.get(PlanCommitsUseCase)
+
       const modifiedFiles = await git.getModifiedFiles()
 
       if (modifiedFiles.length === 0) {
@@ -131,10 +138,12 @@ export async function activate(context: vscode.ExtensionContext) {
         if (diff.trim()) diffs[file] = diff
       }
 
-      const summaries = await new SummarizeDiffsUseCase(llm).execute(diffs)
-      const plan = await new PlanCommitsUseCase().execute(summaries)
+      const summaries = await summarizeDiffsUseCase.execute(diffs)
+      const plan = await planCommitsUseCase.execute(summaries)
 
-      viewProvider.updateSuggestedCommits(plan.messages)
+      viewProvider.updateSuggestedCommits(
+        plan.commits.map((commit) => commit.message),
+      )
     },
   )
 
