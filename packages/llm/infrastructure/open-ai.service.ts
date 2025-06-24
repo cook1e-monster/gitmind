@@ -1,5 +1,8 @@
 import OpenAI from 'openai'
-import type { FileChangeSummary } from '../../commit/domain/commit-plan'
+import type {
+  FileChangeSummary,
+  FileZone,
+} from '../../commit/domain/commit-plan'
 import type { LLMService } from '../domain/llm.service'
 import type { GitService as GitServiceInterface } from '../../git/domain/git.interface'
 import { ConfigService } from '@core/config'
@@ -79,6 +82,38 @@ files: file1, file2
 
 commit2: message2
 files: file3, file4
+
+...`
+
+    const chat = await this.openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+    })
+
+    return chat.choices[0]?.message.content ?? ''
+  }
+
+  async suggestCommitsFromZones(zones: FileZone[]): Promise<string> {
+    const prompt = `Given these specific code zones/changes, group them into logical commits. Each commit should have a clear, focused purpose.
+    
+Zones:
+${zones
+  .map((z) => {
+    const location =
+      z.startLine && z.endLine ? ` (lines ${z.startLine}-${z.endLine})` : ''
+    return `- ${z.file}${location}: ${z.description} [${z.type}]`
+  })
+  .join('\n')}
+
+Return the commits in this format:
+commit1: message1
+files: file1, file2
+zones: file1:10-20, file2:5-15
+
+commit2: message2
+files: file3, file4
+zones: file3:30-40, file4:1-10
 
 ...`
 

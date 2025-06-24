@@ -6,7 +6,11 @@ import { FileProcessorServiceImpl } from '@file-processing/infrastructure/file-p
 import { GitService } from '@git/infrastructure/git.service'
 import type { GitServiceInterface } from '@git/domain/git.interface'
 import { GitHubApiService } from '@git/infrastructure/git-hub-api.service'
-import type { Commit } from '@commit/domain/commit-plan'
+import type {
+  Commit,
+  CommitPlan,
+  FileChangeSummary,
+} from '@commit/domain/commit-plan'
 
 @Injectable()
 export class CommitWorkflowUseCase {
@@ -27,13 +31,13 @@ export class CommitWorkflowUseCase {
     )
   }
 
-  async generateSummariesAndPlan(
+  async generateSummaries(
     filesToProcess: string[],
     changed: {
       path: string
       status: string
     }[],
-  ) {
+  ): Promise<FileChangeSummary[]> {
     const selectedFileStatuses = changed.filter((f) =>
       filesToProcess.includes(f.path),
     )
@@ -50,7 +54,21 @@ export class CommitWorkflowUseCase {
 
     const summaries = await this.summarizeDiffs.execute(diffs)
 
-    const plan = await this.planCommits.execute(summaries)
+    return summaries
+  }
+
+  async generatePlan(summaries: FileChangeSummary[]): Promise<CommitPlan> {
+    const changed = await this.getChangedFiles()
+    const selectedFileStatuses = changed.filter((f) =>
+      summaries.some((s) => s.file === f.path),
+    )
+
+    const diffs = await this.fileProcessor.processDiffs(
+      selectedFileStatuses,
+      this.git,
+    )
+
+    const plan = await this.planCommits.executeWithZones(summaries, diffs)
 
     if (!plan.commits.length) {
       console.error('❌ Failed to generate commit plan.')
@@ -68,20 +86,30 @@ export class CommitWorkflowUseCase {
       console.log(`\n${index + 1}. ${commit.message}`)
       console.log(`   Files: ${commit.files.join(', ')}`)
       console.log(`   Type: ${commit.type}`)
+
+      if (commit.zones && commit.zones.length > 0) {
+        console.log(`   Zones:`)
+        commit.zones.forEach((zone) => {
+          const location =
+            zone.startLine && zone.endLine
+              ? ` (lines ${zone.startLine}-${zone.endLine})`
+              : ''
+          console.log(`     - ${zone.file}${location}: ${zone.description}`)
+        })
+      }
     })
 
-    return { plan, summaries }
+    return plan
   }
 
   async createNewBranch(branchName: string) {
     const currentBranch = await this.git.getCurrentBranch()
 
     await $`git fetch origin ${currentBranch}`
-    await $`git reset --hard origin/${currentBranch}`
+    // await $`git reset --hard origin/${currentBranch}`
 
     // Create and switch to new branch
     await this.git.createBranch(branchName)
-    console.log(`🌿 Created and switched to branch: ${name}`)
   }
 
   async executeCommits(commits: Commit[]): Promise<void> {
@@ -121,13 +149,23 @@ export class CommitWorkflowUseCase {
       // Commit without specifying files parameter since we've already staged them
       await this.git.commit(commit.message)
       console.log(`✅ Committed: ${commit.message}`)
+
+      if (commit.zones && commit.zones.length > 0) {
+        console.log(`   📍 Zones included:`)
+        commit.zones.forEach((zone) => {
+          const location =
+            zone.startLine && zone.endLine
+              ? ` (lines ${zone.startLine}-${zone.endLine})`
+              : ''
+          console.log(`     - ${zone.file}${location}`)
+        })
+      }
     }
   }
 
   async pushChanges(newBranch?: string): Promise<void> {
     if (newBranch) {
       // Force push if it's a new branch
-      await $`git push -u origin HEAD --force`
       console.log('🚀 Pushed to new branch')
     } else {
       await this.git.push()

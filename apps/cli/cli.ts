@@ -16,22 +16,29 @@ export class Cli {
 
     const filesToProcess = await this.interaction.selectFiles(changed)
 
-    const { plan } = await this.workflow.generateSummariesAndPlan(
+    const summaries = await this.workflow.generateSummaries(
       filesToProcess,
       changed,
     )
 
-    const { confirmed } = await this.interaction.confirmBranch(plan.branchName!)
+    const plan = await this.workflow.generatePlan(summaries)
 
-    if (confirmed) {
-      await this.workflow.createNewBranch(plan.branchName!)
+    // If the plan has a branch name, we need to confirm it
+    if (plan.branchName) {
+      const { confirmed, name: branchName } =
+        await this.interaction.confirmBranch(plan.branchName)
+
+      if (confirmed) {
+        await this.workflow.createNewBranch(branchName)
+        console.log(`🌿 Created and switched to branch: ${branchName}`)
+      }
     }
 
     const finalCommits = await this.interaction.reviewCommits(plan.commits)
 
-    if (finalCommits.length === 0) {
+    if (!finalCommits.length) {
       console.log('❌ No commits to execute.')
-      return
+      throw new Error('No commits to execute.')
     }
 
     const shouldExecute = await this.interaction.confirmExecution(

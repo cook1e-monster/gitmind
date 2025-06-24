@@ -84,6 +84,18 @@ export class InquirerInteractionService implements InteractionService {
       console.log(`Files: ${commit.files.join(', ')}`)
       console.log(`Type: ${commit.type}`)
 
+      // Mostrar información sobre zonas específicas
+      if (commit.zones && commit.zones.length > 0) {
+        console.log(`Zones:`)
+        commit.zones.forEach((zone) => {
+          const location =
+            zone.startLine && zone.endLine
+              ? ` (lines ${zone.startLine}-${zone.endLine})`
+              : ''
+          console.log(`  - ${zone.file}${location}: ${zone.description}`)
+        })
+      }
+
       const { action } = await inquirer.prompt([
         {
           type: 'list',

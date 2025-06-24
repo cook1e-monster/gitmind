@@ -97,7 +97,6 @@ export class GitService implements GitServiceInterface {
       // Create the commit
       const escapedMessage = message.replace(/"/g, '\\"')
       await execAsync(`git commit -m "${escapedMessage}"`)
-      console.log(`✅ Committed: ${message}`)
     } catch (e) {
       console.error('[GitMind] Commit failed', e)
       throw e
